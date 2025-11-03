@@ -8,6 +8,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from .dependencies import create_ai_client, create_bot
 from .handlers import dialog
+from .handlers.registration import registration_router
 
 logging.basicConfig(level=logging.INFO)
 
@@ -17,7 +18,12 @@ async def main() -> None:
     ai_client = create_ai_client()
 
     dp = Dispatcher(storage=MemoryStorage())
-    dp["ai_client"] = ai_client  # Store in dispatcher workflow_data
+    
+    # Добавляем ai_client в workflow_data для доступа из handlers
+    dp.workflow_data.update(ai_client=ai_client)
+    
+    # Порядок важен: registration должен быть первым (обрабатывает /start)
+    dp.include_router(registration_router)
     dp.include_router(dialog.router)
 
     await bot.delete_webhook(drop_pending_updates=True)

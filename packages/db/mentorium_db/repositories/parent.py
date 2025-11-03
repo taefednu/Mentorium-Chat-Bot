@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Parent
+from ..models import Parent, ParentStudent
 
 
 class ParentRepository:
@@ -30,7 +30,7 @@ class ParentRepository:
         telegram_id: int,
         first_name: str | None = None,
         last_name: str | None = None,
-        username: str | None = None,
+        telegram_username: str | None = None,
         phone: str | None = None,
         email: str | None = None,
         language_code: str = "ru",
@@ -40,7 +40,7 @@ class ParentRepository:
             telegram_id=telegram_id,
             first_name=first_name,
             last_name=last_name,
-            username=username,
+            telegram_username=telegram_username,
             phone=phone,
             email=email,
             language_code=language_code,
@@ -72,5 +72,41 @@ class ParentRepository:
         """Получить всех активных родителей (с пагинацией)"""
         result = await self.session.execute(
             select(Parent).where(Parent.is_active == True).limit(limit).offset(offset)  # noqa: E712
+        )
+        return list(result.scalars().all())
+
+    async def add_student(self, parent_id: int, student_id: str) -> ParentStudent:
+        """
+        Привязать ученика к родителю
+        
+        Args:
+            parent_id: ID родителя в Bot DB
+            student_id: ID ученика в Platform DB
+        """
+        parent_student = ParentStudent(parent_id=parent_id, platform_student_id=student_id)
+        self.session.add(parent_student)
+        await self.session.flush()
+        await self.session.refresh(parent_student)
+        return parent_student
+
+    async def remove_student(self, parent_id: int, student_id: str) -> bool:
+        """Отвязать ученика от родителя"""
+        result = await self.session.execute(
+            select(ParentStudent).where(
+                ParentStudent.parent_id == parent_id,
+                ParentStudent.platform_student_id == student_id,
+            )
+        )
+        parent_student = result.scalar_one_or_none()
+        if parent_student:
+            await self.session.delete(parent_student)
+            await self.session.flush()
+            return True
+        return False
+
+    async def get_students(self, parent_id: int) -> list[ParentStudent]:
+        """Получить всех учеников родителя"""
+        result = await self.session.execute(
+            select(ParentStudent).where(ParentStudent.parent_id == parent_id)
         )
         return list(result.scalars().all())

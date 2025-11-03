@@ -15,7 +15,7 @@ async def test_create_parent():
             telegram_id=123456789,
             first_name="Иван",
             last_name="Петров",
-            username="ivan_p",
+            telegram_username="ivan_p",
             email="ivan@example.com",
         )
 

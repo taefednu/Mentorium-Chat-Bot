@@ -4,6 +4,7 @@ from .dialog import DialogRepository
 from .notification import NotificationRepository
 from .parent import ParentRepository
 from .payment import PaymentRepository
+from .platform import PlatformRepository, PlatformStudent, CourseProgress, TestResult
 from .reporting import SqlReportRepository
 from .subscription import SubscriptionRepository
 
@@ -14,4 +15,8 @@ __all__ = [
     "PaymentRepository",
     "DialogRepository",
     "NotificationRepository",
+    "PlatformRepository",
+    "PlatformStudent",
+    "CourseProgress",
+    "TestResult",
 ]
