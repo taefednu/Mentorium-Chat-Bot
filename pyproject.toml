@@ -1,0 +1,65 @@
+[tool.poetry]
+name = "mentorium-chat-bot"
+version = "0.1.0"
+description = "Монорепозиторий Python-сервисов для Mentorium чат-бота"
+authors = ["Mentorium Platform <dev@mentorium.io>"]
+readme = "README.md"
+packages = [
+	{ include = "mentorium_bot", from = "apps/telegram_bot" },
+	{ include = "mentorium_reporting", from = "apps/reporting_worker" },
+	{ include = "mentorium_billing", from = "apps/billing_service" },
+	{ include = "mentorium_ai_client", from = "packages/ai_client" },
+	{ include = "mentorium_core", from = "packages/core" },
+	{ include = "mentorium_db", from = "packages/db" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+aiogram = "^3.4.1"
+fastapi = "^0.110.0"
+uvicorn = { extras = ["standard"], version = "^0.30.0" }
+openai = "^1.30.0"
+pydantic = "^2.7.2"
+pydantic-settings = "^2.2.1"
+SQLAlchemy = "^2.0.29"
+asyncpg = "^0.29.0"
+psycopg = { extras = ["binary"], version = "^3.1.19" }
+alembic = "^1.13.1"
+httpx = "^0.27.0"
+redis = "^5.0.4"
+celery = "^5.3.6"
+python-dotenv = "^1.0.1"
+apscheduler = "^3.10.4"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-asyncio = "^0.23.6"
+pytest-cov = "^5.0.0"
+black = "^24.4.2"
+ruff = "^0.4.4"
+mypy = "^1.10.0"
+pre-commit = "^3.7.0"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+select = ["E", "F", "I", "N", "UP", "B", "COM", "Q", "RET", "RUF"]
+line-length = 100
+ignore = ["D100", "D101", "D102", "D103"]
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+strict_optional = true
+plugins = ["pydantic.mypy"]
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"

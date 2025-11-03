@@ -1,0 +1,1 @@
+"""Хэндлеры aiogram для Mentorium-бота."""
