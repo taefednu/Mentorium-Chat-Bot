@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import DialogMessage
+from ..models import DialogMessage, Parent
 
 
 class DialogRepository:
@@ -16,6 +16,38 @@ class DialogRepository:
 
     def __init__(self, session: AsyncSession):
         self.session = session
+
+    async def save_message(
+        self,
+        parent_telegram_id: int,
+        role: str,
+        content: str,
+        tokens_used: int | None = None,
+        model: str | None = None,
+        prompt_version: str | None = None,
+    ) -> DialogMessage:
+        """
+        Сохранить сообщение в историю по Telegram ID родителя
+        
+        Удобный метод для использования в handlers (где есть telegram_id)
+        """
+        # Получаем parent_id по telegram_id
+        result = await self.session.execute(
+            select(Parent.id).where(Parent.telegram_id == parent_telegram_id)
+        )
+        parent_id = result.scalar_one_or_none()
+
+        if not parent_id:
+            raise ValueError(f"Parent with telegram_id {parent_telegram_id} not found")
+
+        return await self.add_message(
+            parent_id=parent_id,
+            role=role,
+            content=content,
+            tokens_used=tokens_used,
+            model=model,
+            prompt_version=prompt_version,
+        )
 
     async def add_message(
         self,
@@ -41,16 +73,25 @@ class DialogRepository:
         return message
 
     async def get_recent_history(
-        self, parent_id: int, limit: int = 10, hours: int = 24
+        self, parent_telegram_id: int, limit: int = 10, hours: int = 24
     ) -> list[DialogMessage]:
         """
         Получить недавнюю историю диалога для контекста AI
         
         Args:
-            parent_id: ID родителя
+            parent_telegram_id: Telegram ID родителя
             limit: Максимальное количество сообщений
             hours: Получить сообщения за последние N часов
         """
+        # Получаем parent_id по telegram_id
+        result = await self.session.execute(
+            select(Parent.id).where(Parent.telegram_id == parent_telegram_id)
+        )
+        parent_id = result.scalar_one_or_none()
+
+        if not parent_id:
+            return []
+
         since = datetime.utcnow() - timedelta(hours=hours)
         result = await self.session.execute(
             select(DialogMessage)
