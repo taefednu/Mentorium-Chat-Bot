@@ -1,0 +1,193 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - основная БД бота
+  postgres:
+    image: postgres:16-alpine
+    container_name: mentorium-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-mentoriumbot}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-mentorium_bot}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-mentoriumbot} -d ${DB_NAME:-mentorium_bot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mentorium-network
+    restart: unless-stopped
+
+  # Redis - для кэширования и очередей (если потребуется)
+  redis:
+    image: redis:7-alpine
+    container_name: mentorium-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - mentorium-network
+    restart: unless-stopped
+
+  # Telegram Bot - основное приложение
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mentorium-bot
+    env_file:
+      - .env
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-mentoriumbot}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-mentorium_bot}
+      
+      # Platform DB (read-only)
+      PLATFORM_DB_HOST: ${PLATFORM_DB_HOST}
+      PLATFORM_DB_PORT: ${PLATFORM_DB_PORT:-5432}
+      PLATFORM_DB_USER: ${PLATFORM_DB_USER}
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD}
+      PLATFORM_DB_NAME: ${PLATFORM_DB_NAME}
+      
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      
+      # Bot config
+      BOT_TELEGRAM_TOKEN: ${BOT_TELEGRAM_TOKEN}
+      BOT_OPENAI_API_KEY: ${BOT_OPENAI_API_KEY}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      
+      # Sentry (optional)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      GIT_COMMIT: ${GIT_COMMIT:-unknown}
+      
+      # Payment providers (optional)
+      BOT_PAYME_MERCHANT_ID: ${BOT_PAYME_MERCHANT_ID:-}
+      BOT_PAYME_SECRET_KEY: ${BOT_PAYME_SECRET_KEY:-}
+      BOT_CLICK_MERCHANT_ID: ${BOT_CLICK_MERCHANT_ID:-}
+      BOT_CLICK_SERVICE_ID: ${BOT_CLICK_SERVICE_ID:-}
+      BOT_CLICK_SECRET_KEY: ${BOT_CLICK_SECRET_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mentorium-network
+    restart: unless-stopped
+    command: ["python", "-m", "mentorium_bot.main"]
+
+  # Webhook App - для payment webhooks (PayMe, Click)
+  webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mentorium-webhook
+    env_file:
+      - .env
+    environment:
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-mentoriumbot}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-mentorium_bot}
+      
+      # Platform DB (read-only)
+      PLATFORM_DB_HOST: ${PLATFORM_DB_HOST}
+      PLATFORM_DB_PORT: ${PLATFORM_DB_PORT:-5432}
+      PLATFORM_DB_USER: ${PLATFORM_DB_USER}
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD}
+      PLATFORM_DB_NAME: ${PLATFORM_DB_NAME}
+      
+      # Bot config
+      BOT_TELEGRAM_TOKEN: ${BOT_TELEGRAM_TOKEN}
+      BOT_OPENAI_API_KEY: ${BOT_OPENAI_API_KEY}
+      
+      # Payment providers
+      BOT_PAYME_MERCHANT_ID: ${BOT_PAYME_MERCHANT_ID:-}
+      BOT_PAYME_SECRET_KEY: ${BOT_PAYME_SECRET_KEY:-}
+      BOT_CLICK_MERCHANT_ID: ${BOT_CLICK_MERCHANT_ID:-}
+      BOT_CLICK_SERVICE_ID: ${BOT_CLICK_SERVICE_ID:-}
+      BOT_CLICK_SECRET_KEY: ${BOT_CLICK_SECRET_KEY:-}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      
+      # Sentry
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${WEBHOOK_PORT:-8001}:8001"
+    networks:
+      - mentorium-network
+    restart: unless-stopped
+    command: ["python", "-m", "mentorium_bot.webhook_app"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Migrations - запускаются один раз при старте
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mentorium-migrations
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-mentoriumbot}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME:-mentorium_bot}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mentorium-network
+    working_dir: /app/packages/db
+    command: ["poetry", "run", "alembic", "upgrade", "head"]
+    restart: "no"
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  mentorium-network:
+    driver: bridge

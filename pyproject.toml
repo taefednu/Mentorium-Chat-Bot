@@ -7,10 +7,9 @@ readme = "README.md"
 packages = [
 	{ include = "mentorium_bot", from = "apps/telegram_bot" },
 	{ include = "mentorium_reporting", from = "apps/reporting_worker" },
-	{ include = "mentorium_billing", from = "apps/billing_service" },
 	{ include = "mentorium_ai_client", from = "packages/ai_client" },
-	{ include = "mentorium_core", from = "packages/core" },
-	{ include = "mentorium_db", from = "packages/db" }
+	{ include = "mentorium_db", from = "packages/db" },
+	{ include = "mentorium_observability", from = "packages/observability" }
 ]
 
 [tool.poetry.dependencies]
