@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base
@@ -217,6 +217,39 @@ class Notification(Base):
 
     # Relationships
     parent: Mapped[Parent] = relationship("Parent", back_populates="notifications")
+
+
+class ReportHistory(Base):
+    """История отправленных отчётов"""
+
+    __tablename__ = "report_history"
+    __table_args__ = (
+        Index("ix_report_history_parent_sent", "parent_id", "sent_at"),
+        Index("ix_report_history_type_period", "report_type", "period_end"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    parent_id: Mapped[int] = mapped_column(ForeignKey("parents.id"), nullable=False, index=True)
+    report_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, comment="weekly, monthly, on_demand"
+    )
+    sent_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Кэшированные метрики для быстрого доступа
+    lessons_completed: Mapped[int] = mapped_column(Integer, default=0)
+    tests_taken: Mapped[int] = mapped_column(Integer, default=0)
+    average_score: Mapped[float] = mapped_column(Numeric(5, 2), default=0.0)
+    days_without_skip: Mapped[int] = mapped_column(Integer, default=0)
+    courses_in_progress: Mapped[int] = mapped_column(Integer, default=0)
+    courses_completed: Mapped[int] = mapped_column(Integer, default=0)
+
+    # AI-сгенерированные рекомендации
+    ai_recommendations: Mapped[str | None] = mapped_column(Text)
+
+    # Relationships
+    parent: Mapped[Parent] = relationship("Parent")
 
 
 # === Legacy/старые модели (сохраняем для совместимости) ===

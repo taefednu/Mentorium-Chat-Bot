@@ -5,6 +5,7 @@ from .notification import NotificationRepository
 from .parent import ParentRepository
 from .payment import PaymentRepository
 from .platform import PlatformRepository, PlatformStudent, CourseProgress, TestResult
+from .report import ReportHistoryRepository
 from .reporting import SqlReportRepository
 from .subscription import SubscriptionRepository
 
@@ -19,4 +20,5 @@ __all__ = [
     "PlatformStudent",
     "CourseProgress",
     "TestResult",
+    "ReportHistoryRepository",
 ]
