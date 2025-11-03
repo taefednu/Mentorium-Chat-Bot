@@ -14,9 +14,10 @@ logging.basicConfig(level=logging.INFO)
 
 async def main() -> None:
     bot = create_bot()
-    bot["ai_client"] = create_ai_client()
+    ai_client = create_ai_client()
 
     dp = Dispatcher(storage=MemoryStorage())
+    dp["ai_client"] = ai_client  # Store in dispatcher workflow_data
     dp.include_router(dialog.router)
 
     await bot.delete_webhook(drop_pending_updates=True)

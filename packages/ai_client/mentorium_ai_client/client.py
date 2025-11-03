@@ -16,9 +16,21 @@ class MentoriumAIClient:
         self._client = AsyncOpenAI(api_key=api_key)
 
     async def generate_reply(self, request: MentorPrompt) -> str:
-        response = await self._client.responses.create(
-            model="gpt-4.1-mini",
-            input=[
+        """
+        Генерирует ответ от AI-наставника
+        
+        Args:
+            request: Запрос с промптом и опциональным conversation_id
+            
+        Returns:
+            Текст ответа от AI
+            
+        Raises:
+            RuntimeError: Если получен пустой ответ от модели
+        """
+        response = await self._client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
                 {
                     "role": "system",
                     "content": (
@@ -31,10 +43,9 @@ class MentoriumAIClient:
                     "content": request.prompt,
                 },
             ],
-            metadata={"conversation_id": request.conversation_id} if request.conversation_id else None,
         )
 
-        message = response.output[0].content[0].text if response.output else None
+        message = response.choices[0].message.content
         if not message:
             raise RuntimeError("Получен пустой ответ от модели")
 

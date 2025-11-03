@@ -57,4 +57,5 @@ async def test_deactivate_parent():
 
         # Проверяем
         updated = await repo.get_by_id(parent.id)
+        assert updated is not None
         assert updated.is_active is False
